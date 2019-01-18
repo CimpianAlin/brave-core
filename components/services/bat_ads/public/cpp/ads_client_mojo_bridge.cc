@@ -59,6 +59,11 @@ void AdsClientMojoBridge::IsForeground(IsForegroundCallback callback) {
   std::move(callback).Run(ads_client_->IsForeground());
 }
 
+bool AdsClientMojoBridge::GetRegion(std::string* out_region) {
+  *out_region = ads_client_->GetRegion();
+  return true;
+}
+
 bool AdsClientMojoBridge::GetAdsLocale(std::string* out_locale) {
   *out_locale = ads_client_->GetAdsLocale();
   return true;

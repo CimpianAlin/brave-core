@@ -64,6 +64,7 @@ class AdsServiceImpl : public AdsService,
   void TabClosed(SessionID tab_id) override;
   void OnMediaStart(SessionID tab_id) override;
   void OnMediaStop(SessionID tab_id) override;
+  const std::string GetRegion() override;
   void ClassifyPage(const std::string& url, const std::string& page) override;
 
   void Shutdown() override;

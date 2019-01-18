@@ -33,6 +33,10 @@ void BatAdsImpl::Initialize(InitializeCallback callback) {
   std::move(callback).Run();
 }
 
+const std::string BatAdsImpl::GetRegion() {
+  return ads_->GetRegion();
+}
+
 void BatAdsImpl::ClassifyPage(const std::string& url,
                               const std::string& page) {
   ads_->ClassifyPage(url, page);

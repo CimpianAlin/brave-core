@@ -26,6 +26,7 @@ class BatAdsImpl : public mojom::BatAds {
 
   // Overridden from mojom::BatAds:
   void Initialize(InitializeCallback callback) override;
+  const std::string BatAdsImpl::GetRegion() override;
   void ClassifyPage(const std::string& url,
                     const std::string& page) override;
   void TabClosed(int32_t tab_id) override;

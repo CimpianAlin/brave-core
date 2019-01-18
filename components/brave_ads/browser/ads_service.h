@@ -31,6 +31,7 @@ class AdsService : public KeyedService {
   virtual void TabClosed(SessionID tab_id) = 0;
   virtual void OnMediaStart(SessionID tab_id) = 0;
   virtual void OnMediaStop(SessionID tab_id) = 0;
+  virtual const std::string GetRegion() = 0;
   virtual void ClassifyPage(const std::string& url, const std::string& page) = 0;
 
  private:
