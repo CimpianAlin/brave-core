@@ -63,6 +63,12 @@ namespace {
 
 bool HandleURLRewrite(GURL* url,
                       content::BrowserContext* browser_context) {
+  if (url->SchemeIs(kBraveUIScheme)) {
+    GURL::Replacements replacements;
+    replacements.SetSchemeStr(content::kChromeUIScheme);
+    *url = url->ReplaceComponents(replacements);
+  }
+
   if (url->SchemeIs(content::kChromeUIScheme) &&
       (url->host() == chrome::kChromeUIWelcomeHost ||
        url->host() == chrome::kChromeUIWelcomeWin10Host)) {
