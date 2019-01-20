@@ -9,33 +9,42 @@
 
 #include "base/base_paths.h"
 #include "base/bind.h"
+#include "brave/browser/renderer_host/buildflags/buildflags.h" //For STP
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/strings/string_split.h"
-#include "base/task/post_task.h"
 #include "base/threading/thread_restrictions.h"
 #include "brave/browser/brave_browser_process_impl.h"
 #include "brave/components/brave_shields/browser/ad_block_service.h"
+#include "brave/components/brave_shields/browser/dat_file_util.h"
+#include "brave/vendor/tracking-protection/TPParser.h"
+
+#if BUILDFLAG(BRAVE_STP_ENABLED)
+#include "base/strings/string_split.h"
+#include "base/task/post_task.h"
+#include "brave/common/brave_switches.h"
 #include "brave/components/brave_shields/browser/brave_shields_util.h"
 #include "brave/components/brave_shields/browser/brave_shields_web_contents_observer.h"
-#include "brave/components/brave_shields/browser/dat_file_util.h"
 #include "brave/components/brave_shields/common/brave_shield_constants.h"
-#include "brave/vendor/tracking-protection/TPParser.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
-#define NAVIGATION_TRACKERS_FILE "TrackingProtection.dat"
 #define STORAGE_TRACKERS_FILE "StorageTrackingProtection.dat"
+#endif
+
+#define NAVIGATION_TRACKERS_FILE "TrackingProtection.dat"
 #define DAT_FILE_VERSION "1"
 #define THIRD_PARTY_HOSTS_CACHE_SIZE 20
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
 using content::BrowserThread;
 using content::RenderFrameHost;
+#endif
 
 namespace brave_shields {
 
@@ -71,6 +80,7 @@ void TrackingProtectionService::Cleanup() {
   tracking_protection_client_.reset();
 }
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
 TrackingProtectionService::RenderFrameIdKey::RenderFrameIdKey()
     : render_process_id(content::ChildProcessHost::kInvalidUniqueID),
       frame_routing_id(MSG_ROUTING_NONE) {}
@@ -145,53 +155,15 @@ void TrackingProtectionService::DeleteRenderFrameKey(int render_process_id,
   }
 }
 
-bool TrackingProtectionService::ShouldStartRequest(const GURL& url,
-    content::ResourceType resource_type,
-    const std::string &tab_host) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::string host = url.host();
-  if (!tracking_protection_client_->matchesTracker(
-        tab_host.c_str(), host.c_str())) {
-    return true;
-  }
-
-  std::vector<std::string> hosts(GetThirdPartyHosts(tab_host));
-  for (size_t i = 0; i < hosts.size(); i++) {
-    if (host == hosts[i] ||
-        host.find((std::string)"." + hosts[i]) != std::string::npos) {
-      return true;
-    }
-    size_t iPos = host.find((std::string)"." + hosts[i]);
-    if (iPos == std::string::npos) {
-      continue;
-    }
-    if (hosts[i].length() + ((std::string)".").length() + iPos ==
-        host.length()) {
-      return true;
-    }
-  }
-
-  if (std::find(white_list_.begin(), white_list_.end(), host) !=
-      white_list_.end()) {
-    return true;
-  }
-  return false;
-}
-
-void TrackingProtectionService::DispatchBlockedEvent(int render_process_id,
-  int render_frame_id, const GURL& request_url) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  RenderFrameHost* render_frame_host =
-      RenderFrameHost::FromID(render_process_id, render_frame_id);
-  int frame_tree_node_id = render_frame_host ?
-    render_frame_host->GetFrameTreeNodeId() : -1;
-  BraveShieldsWebContentsObserver::DispatchBlockedEvent(kTrackers, 
-    request_url.spec(), render_process_id, render_frame_id, frame_tree_node_id);
-}
-
 bool TrackingProtectionService::ShouldStoreState(HostContentSettingsMap* map, 
   int render_process_id, int render_frame_id, const GURL& top_origin_url, 
   const GURL& origin_url) {
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (!command_line.HasSwitch(switches::kEnableSmartTrackingProtection)) {
+    return true;
+  }
+
   if(first_party_storage_trackers_.empty()) {
     LOG(INFO) << "First party storage trackers list is empty";
     return true;
@@ -228,13 +200,6 @@ bool TrackingProtectionService::ShouldStoreState(HostContentSettingsMap* map,
     first_party_storage_trackers_.end(), host) 
     != first_party_storage_trackers_.end();
 
-  if (denyStorage) {
-    base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI}, 
-      base::BindOnce(&TrackingProtectionService::DispatchBlockedEvent, 
-        base::Unretained(this), render_process_id, render_frame_id,
-         origin_url));
-  }
-
   return !denyStorage;
 }
 
@@ -254,6 +219,40 @@ void TrackingProtectionService::ParseStorageTrackersData() {
     LOG(ERROR) << "No first party trackers found";
     return;
   }
+}
+#endif
+
+bool TrackingProtectionService::ShouldStartRequest(const GURL& url,
+    content::ResourceType resource_type,
+    const std::string &tab_host) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::string host = url.host();
+  if (!tracking_protection_client_->matchesTracker(
+        tab_host.c_str(), host.c_str())) {
+    return true;
+  }
+
+  std::vector<std::string> hosts(GetThirdPartyHosts(tab_host));
+  for (size_t i = 0; i < hosts.size(); i++) {
+    if (host == hosts[i] ||
+        host.find((std::string)"." + hosts[i]) != std::string::npos) {
+      return true;
+    }
+    size_t iPos = host.find((std::string)"." + hosts[i]);
+    if (iPos == std::string::npos) {
+      continue;
+    }
+    if (hosts[i].length() + ((std::string)".").length() + iPos ==
+        host.length()) {
+      return true;
+    }
+  }
+
+  if (std::find(white_list_.begin(), white_list_.end(), host) !=
+      white_list_.end()) {
+    return true;
+  }
+  return false;
 }
 
 bool TrackingProtectionService::Init() {
@@ -289,6 +288,7 @@ void TrackingProtectionService::OnComponentReady(
       base::Bind(&TrackingProtectionService::OnDATFileDataReady,
                  weak_factory_.GetWeakPtr()));
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
   base::FilePath storage_tracking_protection_path =
       install_dir.AppendASCII(DAT_FILE_VERSION).AppendASCII(
         STORAGE_TRACKERS_FILE);
@@ -299,6 +299,7 @@ void TrackingProtectionService::OnComponentReady(
         &storage_trackers_buffer_),
         base::Bind(&TrackingProtectionService::ParseStorageTrackersData,
           weak_factory_.GetWeakPtr()));
+#endif
 }
 
 // Ported from Android: net/blockers/blockers_worker.cc

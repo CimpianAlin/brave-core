@@ -16,13 +16,17 @@
 #include "base/files/file_path.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
+#include "brave/browser/renderer_host/buildflags/buildflags.h" //For STP
 #include "brave/components/brave_shields/browser/base_brave_shields_service.h"
 #include "brave/components/brave_shields/browser/dat_file_util.h"
 #include "content/public/common/resource_type.h"
 
 class CTPParser;
-class HostContentSettingsMap;
 class TrackingProtectionServiceTest;
+
+#if BUILDFLAG(BRAVE_STP_ENABLED)
+class HostContentSettingsMap;
+#endif
 
 namespace brave_shields {
 
@@ -49,6 +53,7 @@ class TrackingProtectionService : public BaseBraveShieldsService {
     const std::string& tab_host) override;
   scoped_refptr<base::SequencedTaskRunner> GetTaskRunner() override;
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
   bool ShouldStoreState(HostContentSettingsMap* map, 
     int render_process_id, int render_frame_id, const GURL& top_origin_url, 
     const GURL& origin_url);
@@ -62,6 +67,7 @@ class TrackingProtectionService : public BaseBraveShieldsService {
   void DeleteRenderFrameKey(int render_process_id, int render_frame_id);
   void ModifyRenderFrameKey(int old_render_process_id, int old_render_frame_id,
     int new_render_process_id, int new_render_frame_id);
+#endif
   
  protected:
   bool Init() override;
@@ -70,6 +76,7 @@ class TrackingProtectionService : public BaseBraveShieldsService {
       const base::FilePath& install_dir,
       const std::string& manifest) override;
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
   void ParseStorageTrackersData();
   struct RenderFrameIdKey {
     RenderFrameIdKey();
@@ -81,6 +88,7 @@ class TrackingProtectionService : public BaseBraveShieldsService {
     bool operator<(const RenderFrameIdKey& other) const;
     bool operator==(const RenderFrameIdKey& other) const;
   };
+#endif
 
  private:
   friend class ::TrackingProtectionServiceTest;
@@ -93,11 +101,14 @@ class TrackingProtectionService : public BaseBraveShieldsService {
   void OnDATFileDataReady();
   std::vector<std::string> GetThirdPartyHosts(const std::string& base_host);
 
+#if BUILDFLAG(BRAVE_STP_ENABLED)
+  std::vector<std::string> first_party_storage_trackers_;
   std::map<RenderFrameIdKey, GURL> render_frame_key_to_starting_site_url;
   base::Lock frame_starting_site_map_lock_;
 
-  brave_shields::DATFileDataBuffer buffer_;
   brave_shields::DATFileDataBuffer storage_trackers_buffer_;
+#endif
+  brave_shields::DATFileDataBuffer buffer_;
 
   std::unique_ptr<CTPParser> tracking_protection_client_;
   // TODO: Temporary hack which matches both browser-laptop and Android code
@@ -107,8 +118,6 @@ class TrackingProtectionService : public BaseBraveShieldsService {
   std::mutex third_party_hosts_mutex_;
 
   SEQUENCE_CHECKER(sequence_checker_);
-  std::vector<std::string> first_party_storage_trackers_;
-
   base::WeakPtrFactory<TrackingProtectionService> weak_factory_;
   DISALLOW_COPY_AND_ASSIGN(TrackingProtectionService);
 };
