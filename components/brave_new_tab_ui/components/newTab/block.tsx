@@ -97,7 +97,7 @@ interface Props {
   onToggleBookmark: () => void
   isBookmarked?: boolean
   onPinnedTopSite: () => void
-  isPinned: boolean
+  isPinned?: boolean
   onIgnoredTopSite: () => void
   title: string
   href: string
@@ -123,8 +123,9 @@ class Block extends React.Component<Props, {}> {
       style,
       favicon
     } = this.props
-    const starIcon = isBookmarked ? <BookmarkOIcon /> : <BookmarkIcon />
-    const pinIcon = <PinIcon />
+    const bookmarkIcon = isBookmarked ? <BookmarkIcon /> : <BookmarkOIcon />
+    // FIXME: this icon needs updated to PinOIcon when false as soon as it's available in brave-ui
+    const pinIcon = isPinned ? <PinIcon /> : <PinIcon />
 
     return connectDragSource(
       connectDropTarget(
@@ -135,7 +136,7 @@ class Block extends React.Component<Props, {}> {
                 {pinIcon}
               </TileAction>
               <TileAction onClick={onToggleBookmark}>
-                {starIcon}
+                {bookmarkIcon}
               </TileAction>
               <TileAction onClick={onIgnoredTopSite}>
                 <CloseStrokeIcon />
