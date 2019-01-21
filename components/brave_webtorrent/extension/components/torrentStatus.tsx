@@ -4,8 +4,7 @@
 
 import * as React from 'react'
 import * as prettierBytes from 'prettier-bytes'
-import { Column, Grid } from 'brave-ui/components'
-import { Heading } from 'brave-ui/old'
+import { Column, Grid, Heading } from 'brave-ui/components'
 
 // Constants
 import { TorrentObj } from '../constants/webtorrentState'
@@ -79,16 +78,19 @@ export default class TorrentStatus extends React.PureComponent<Props, {}> {
       const minutesStr = (hours || minutes) ? minutes + 'm' : ''
       const secondsStr = seconds + 's'
 
-      return (<Column size={2}> {hoursStr} {minutesStr} {secondsStr} remaining </Column>)
+      return (
+      <div className='__column'>
+      {hoursStr} {minutesStr} {secondsStr} remaining 
+      </div>)
     }
 
     return (
-      <div>
+      <div className='torrentSubhead'>
         <Heading
-          text='Torrent Status'
+          children='Torrent Status'
           level={3}
         />
-        <Grid>
+        <Grid className='gridFix'>
           {renderStatus()}
           {renderPercentage()}
           {renderSpeeds()}
